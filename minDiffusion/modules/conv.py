@@ -59,6 +59,21 @@ def get_extra_padding_for_conv(length: int, kernel_size: int, stride: int, paddi
     return ideal_length - length
 
 
+def reset_parameters(module, init_type: Optional[str] = None):
+    """Initialize weights and bias based on init_type."""
+    if not isinstance(module, (nn.Conv2d, nn.ConvTranspose2d)):
+        return  # ignore non-conv layers
+    if init_type is None:
+        # Fallback: use PyTorch default init
+        return
+    elif init_type == "zeros":
+        nn.init.zeros_(module.weight)
+        if module.bias is not None:
+            nn.init.zeros_(module.bias)
+    else:
+        raise ValueError(f"Unsupported init type: {init_type}")
+
+
 class MyConv2d(nn.Module):
     """
     Conv2d with custom handling of padding, making it easier to infer output shapes.
@@ -83,6 +98,7 @@ class MyConv2d(nn.Module):
         dilation: Union[int, Tuple[int, int]] = (1, 1),
         groups: int = 1,
         bias: bool = True,
+        init: Optional[str] = None,
         device: Optional[Union[str, torch.device]] = None,
         dtype: Optional[torch.dtype] = None,
     ):
@@ -106,6 +122,7 @@ class MyConv2d(nn.Module):
                 warnings.warn(f'MyConv2d has been initialized with stride > 1 and dilation > 1 on dimension {idx_dim} (stride={stride_dim}, dilation={dilation_dim}).')
 
         self.pad_mode = pad_mode
+        self.apply(lambda m: reset_parameters(m, init_type=init))
 
     def forward(self, x):
         B, C, H, W = x.shape
